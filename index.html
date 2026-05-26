@@ -3,21 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>P38 Inclinometer Prototípus</title>
+    <title>P38 CyberSloyd Inclinometer v5</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #121212;
-            font-family: sans-serif;
+            background-color: #0a0512;
+            font-family: 'Courier New', Courier, monospace;
             -webkit-user-select: none;
             user-select: none;
+            touch-action: none;
         }
         #canvas-container {
             width: 100vw;
             height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
+        
+        /* CRT TV SCANLINE OVERLAY */
+        #crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.04));
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* SLOYD 3D MODELL CONTAINER (A Giroszkóp ezt fogja dönteni a térben) */
+        #gauge-perspective-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            perspective: 1200px; /* Megadja a 3D mélységet a döntéshez */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+        #sloyd-container {
+            width: 85vw;
+            height: 60vw;
+            max-width: 500px;
+            max-height: 375px;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
+            border-radius: 8px;
+            background-color: #000000;
+            overflow: hidden;
+            pointer-events: auto; /* Így az iframe-en belül tudsz babrálni a modellel */
+            transform: translateZ(0); /* Hardveres gyorsítás kényszerítése */
+            will-change: transform;
+        }
+        #sloyd-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
         #ui-layer {
             position: absolute;
             top: 0;
@@ -30,71 +84,84 @@
             justify-content: space-between;
             padding: 20px;
             box-sizing: border-box;
+            z-index: 10;
         }
         .btn {
-            background: rgba(30, 30, 30, 0.8);
-            color: #00ff66;
-            border: 2px solid #00ff66;
-            padding: 15px 25px;
+            background: rgba(10, 5, 18, 0.9);
+            color: #ff007f;
+            border: 2px solid #ff007f;
+            padding: 15px 30px;
             font-size: 16px;
             font-weight: bold;
-            border-radius: 8px;
+            font-family: inherit;
+            border-radius: 4px;
             cursor: pointer;
             pointer-events: auto;
-            box-shadow: 0 4px 15px rgba(0, 255, 102, 0.2);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
             transition: all 0.2s ease;
             align-self: center;
+            letter-spacing: 2px;
         }
         .btn:active {
             transform: scale(0.95);
-            background: #00ff66;
-            color: #121212;
+            background: #ff007f;
+            color: #0a0512;
         }
         #telemetry {
             display: flex;
             justify-content: space-between;
             width: 100%;
-            color: #ffffff;
+            color: #00ffff;
             font-size: 18px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
         }
         .angle-box {
-            background: rgba(0,0,0,0.5);
+            background: rgba(10, 5, 18, 0.8);
             padding: 10px 15px;
-            border-radius: 5px;
-            border-left: 3px solid #00ff66;
+            border-radius: 4px;
+            border: 1px solid #00ffff;
         }
     </style>
-    <!-- Three.js beágyazása -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
+    <div id="crt-overlay"></div>
     <div id="canvas-container"></div>
+
+    <!-- Ide ágyaztuk be a külső Sloyd 3D ablakot -->
+    <div id="gauge-perspective-wrapper">
+        <div id="sloyd-container">
+            <iframe src="https://app.sloyd.ai/embed/w7pjyv8t?width=800&height=600&fullscreen=true&mode=deferred"></iframe>
+        </div>
+    </div>
 
     <div id="ui-layer">
         <div id="telemetry">
-            <div class="angle-box">ROLL (Dőlés): <span id="val-roll">0</span>°</div>
-            <div class="angle-box">PITCH (Bólintás): <span id="val-pitch">0</span>°</div>
+            <div class="angle-box">SYS.ROLL // DŐLÉS: <span id="val-roll">0</span>°</div>
+            <div class="angle-box">SYS.PITCH // BÓLINTÁS: <span id="val-pitch">0</span>°</div>
         </div>
-        <button id="start-btn" class="btn">KALIBRÁLÁS ÉS INDÍTÁS</button>
+
+        <button id="start-btn" class="btn">INITIALIZE CORE</button>
     </div>
 
     <script>
-        let scene, camera, renderer, carModel;
+        let scene, camera, renderer, gridHelper;
         let basePitch = 0, baseRoll = 0;
-        let currentPitch = 0, currentRoll = 0;
         let isCalibrated = false;
+        const driveSpeed = 0.15; 
 
-        // 1. Háromdimenziós tér inicializálása
-        function init3D() {
+        // 3D Neon rács háttér inicializálása
+        function initBackgroundGrid() {
             const container = document.getElementById('canvas-container');
             
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x121212);
+            scene.background = new THREE.Color(0x0a0512);
+            scene.fog = new THREE.FogExp2(0x0a0512, 0.08);
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 2, 7); // Kicsit fentről és hátulról nézzük a kocsit
+            camera.position.set(0, 3, 7);
             camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -102,46 +169,9 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(renderer.domElement);
 
-            // Fények
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(5, 10, 7);
-            scene.add(dirLight);
-
-            // Rács (talaj érzékeltetésére)
-            const gridHelper = new THREE.GridHelper(20, 20, 0x00ff66, 0x444444);
-            gridHelper.position.y = -0.5;
+            gridHelper = new THREE.GridHelper(100, 80, 0xff007f, 0x330033);
+            gridHelper.position.y = -1.2; // Kicsit lejjebb toljuk a rácsot, hogy szebb legyen a perspektíva
             scene.add(gridHelper);
-
-            // PROTOTÍPUS AUTÓ (Egyelőre primitív formákból: alváz + fülke)
-            carModel = new THREE.Group();
-
-            // Karosszéria (Zöld doboz mint a Land Rover)
-            const bodyGeo = new THREE.BoxGeometry(1.6, 0.6, 3.5);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1f3d24, roughness: 0.2 });
-            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-            bodyMesh.position.y = 0.3;
-            carModel.add(bodyMesh);
-
-            // Fülke
-            const cabinGeo = new THREE.BoxGeometry(1.4, 0.6, 1.8);
-            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.1 });
-            const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
-            cabinMesh.position.set(0, 0.9, -0.2);
-            carModel.add(cabinMesh);
-
-            // Első lámpák (hogy lásd merre van az előre)
-            const lightGeo = new THREE.BoxGeometry(0.3, 0.15, 0.1);
-            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
-            const leftLight = new THREE.Mesh(lightGeo, lightMat);
-            leftLight.position.set(0.6, 0.3, 1.76);
-            const rightLight = leftLight.clone();
-            rightLight.position.x = -0.6;
-            carModel.add(leftLight, rightLight);
-
-            scene.add(carModel);
 
             window.addEventListener('resize', onWindowResize, false);
             animate();
@@ -156,35 +186,34 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Sima átmenet a mozgásban (Damping / Lerp)
-            carModel.rotation.x += (currentPitch - carModel.rotation.x) * 0.1;
-            carModel.rotation.z += (currentRoll - carModel.rotation.z) * 0.1;
+            // Végtelenített neon út mozgása
+            gridHelper.position.z += driveSpeed;
+            if (gridHelper.position.z >= 1.0) {
+                gridHelper.position.z -= 1.0;
+            }
 
             renderer.render(scene, camera);
         }
 
-        // 2. Gyorsulásmérő és kalibráció kezelése
+        // Giroszkóp adatok leképezése a HTML/CSS Kiber-műszerfalra
         const startBtn = document.getElementById('start-btn');
+        const sloydContainer = document.getElementById('sloyd-container');
 
         startBtn.addEventListener('click', function() {
-            // iOS Engedélykérés (Safari megköveteli)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
                             window.addEventListener('deviceorientation', handleOrientation, true);
-                            isCalibrated = false; // Következő adatcsomagnál nulláz
-                            startBtn.innerText = "NULLÁZÁS / RESET";
-                        } else {
-                            alert('A giroszkóp hozzáférés megtagadva.');
+                            isCalibrated = false;
+                            startBtn.innerText = "RESET SYSTEM";
                         }
                     })
                     .catch(console.error);
             } else {
-                // Nem iOS eszközök (Android / PC teszt)
                 window.addEventListener('deviceorientation', handleOrientation, true);
                 isCalibrated = false;
-                startBtn.innerText = "NULLÁZÁS / RESET";
+                startBtn.innerText = "RESET SYSTEM";
             }
         });
 
@@ -192,8 +221,6 @@
             let rawPitch = 0;
             let rawRoll = 0;
 
-            // IPAD LANDSCAPE (Fektetett) MÓD LEKÉPZÉSE
-            // Amikor az iPad el van forgatva, a Beta és Gamma tengelyek felcserélődnek
             if (window.orientation === 90) {
                 rawPitch = -event.gamma;
                 rawRoll = -event.beta;
@@ -201,33 +228,30 @@
                 rawPitch = event.gamma;
                 rawRoll = event.beta;
             } else {
-                // Álló mód (csak teszthez)
                 rawPitch = event.beta;
                 rawRoll = event.gamma;
             }
 
-            // Első lefutáskor vagy Reset gomb megnyomásakor kalibrál
             if (!isCalibrated) {
                 basePitch = rawPitch;
                 baseRoll = rawRoll;
                 isCalibrated = true;
             }
 
-            // Relatív szög kiszámítása a kalibrált ponthoz képest
             let finalPitch = rawPitch - basePitch;
             let finalRoll = rawRoll - baseRoll;
 
-            // UI értékek frissítése (fokokban kerekítve)
             document.getElementById('val-pitch').innerText = Math.round(finalPitch);
             document.getElementById('val-roll').innerText = Math.round(finalRoll);
 
-            // Átváltás radiánba a Three.js motor számára
-            currentPitch = finalPitch * (Math.PI / 180);
-            currentRoll = finalRoll * (Math.PI / 180);
+            // CSS 3D TRANSZFORMÁCIÓ: A teljes beágyazott Sloyd panelt elforgatjuk a térben
+            // Pitch (bólintás) = X tengely körüli forgás
+            // Roll (oldaldőlés) = Z tengely körüli forgás
+            // A mínusz jelek azért kellenek, hogy a dőlés iránya megegyezzen a fizikai mozgással
+            sloydContainer.style.transform = `rotateX(${-finalPitch}deg) rotateZ(${-finalRoll}deg)`;
         }
 
-        // Indítás
-        init3D();
+        initBackgroundGrid();
     </script>
 </body>
 </html>
