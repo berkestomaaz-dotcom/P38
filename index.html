@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>P38 CyberSloyd Inclinometer v5</title>
+    <title>P38 Native Cyber-Inclinometer v6</title>
     <style>
         body {
             margin: 0;
@@ -18,13 +18,9 @@
         #canvas-container {
             width: 100vw;
             height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
         }
         
-        /* CRT TV SCANLINE OVERLAY */
+        /* CRT TV SCANLINE EFFEKT */
         #crt-overlay {
             position: absolute;
             top: 0;
@@ -36,40 +32,6 @@
             background-size: 100% 4px, 6px 100%;
             pointer-events: none;
             z-index: 20;
-        }
-
-        /* SLOYD 3D MODELL CONTAINER (A Giroszkóp ezt fogja dönteni a térben) */
-        #gauge-perspective-wrapper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            perspective: 1200px; /* Megadja a 3D mélységet a döntéshez */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 5;
-            pointer-events: none;
-        }
-        #sloyd-container {
-            width: 85vw;
-            height: 60vw;
-            max-width: 500px;
-            max-height: 375px;
-            border: 2px solid #00ffff;
-            box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
-            border-radius: 8px;
-            background-color: #000000;
-            overflow: hidden;
-            pointer-events: auto; /* Így az iframe-en belül tudsz babrálni a modellel */
-            transform: translateZ(0); /* Hardveres gyorsítás kényszerítése */
-            will-change: transform;
-        }
-        #sloyd-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
         }
 
         #ui-layer {
@@ -87,11 +49,11 @@
             z-index: 10;
         }
         .btn {
-            background: rgba(10, 5, 18, 0.9);
+            background: rgba(10, 5, 18, 0.85);
             color: #ff007f;
             border: 2px solid #ff007f;
             padding: 15px 30px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             font-family: inherit;
             border-radius: 4px;
@@ -106,6 +68,7 @@
             transform: scale(0.95);
             background: #ff007f;
             color: #0a0512;
+            box-shadow: 0 0 25px rgba(255, 0, 127, 0.8);
         }
         #telemetry {
             display: flex;
@@ -121,57 +84,166 @@
             padding: 10px 15px;
             border-radius: 4px;
             border: 1px solid #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
     <div id="crt-overlay"></div>
     <div id="canvas-container"></div>
 
-    <!-- Ide ágyaztuk be a külső Sloyd 3D ablakot -->
-    <div id="gauge-perspective-wrapper">
-        <div id="sloyd-container">
-            <iframe src="https://app.sloyd.ai/embed/w7pjyv8t?width=800&height=600&fullscreen=true&mode=deferred"></iframe>
-        </div>
-    </div>
-
     <div id="ui-layer">
         <div id="telemetry">
-            <div class="angle-box">SYS.ROLL // DŐLÉS: <span id="val-roll">0</span>°</div>
-            <div class="angle-box">SYS.PITCH // BÓLINTÁS: <span id="val-pitch">0</span>°</div>
+            <div class="angle-box">P38_ROLL // DŐLÉS: <span id="val-roll">0</span>°</div>
+            <div class="angle-box">P38_PITCH // BÓLINTÁS: <span id="val-pitch">0</span>°</div>
         </div>
 
-        <button id="start-btn" class="btn">INITIALIZE CORE</button>
+        <button id="start-btn" class="btn">INITIALIZE RANGE OVERLAND v6</button>
     </div>
 
     <script>
-        let scene, camera, renderer, gridHelper;
+        let scene, camera, renderer, carModel, controls, gridHelper;
         let basePitch = 0, baseRoll = 0;
+        let currentPitch = 0, currentRoll = 0;
         let isCalibrated = false;
         const driveSpeed = 0.15; 
 
-        // 3D Neon rács háttér inicializálása
-        function initBackgroundGrid() {
+        function init3D() {
             const container = document.getElementById('canvas-container');
             
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0512);
-            scene.fog = new THREE.FogExp2(0x0a0512, 0.08);
+            scene.fog = new THREE.FogExp2(0x0a0512, 0.07);
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 3, 7);
-            camera.lookAt(0, 0, 0);
+            camera.position.set(4, 2.5, 6); // Sréhen hátulról nézzük alapból, nagyon jól mutat
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(renderer.domElement);
 
-            gridHelper = new THREE.GridHelper(100, 80, 0xff007f, 0x330033);
-            gridHelper.position.y = -1.2; // Kicsit lejjebb toljuk a rácsot, hogy szebb legyen a perspektíva
+            // UKJAS FORGATÁS ÉS TRADICIONÁLIS ZOOM (OrbitControls)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 3;
+            controls.maxDistance = 12;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02; // Ne lássunk a talaj alá
+            controls.target.set(0, 0.5, 0);
+
+            // Cyberpunk neon fények
+            const ambientLight = new THREE.AmbientLight(0x221133, 2.0);
+            scene.add(ambientLight);
+
+            const cyanLight = new THREE.DirectionalLight(0x00ffff, 1.2);
+            cyanLight.position.set(5, 8, 5);
+            scene.add(cyanLight);
+            
+            const magentaLight = new THREE.DirectionalLight(0xff007f, 1.0);
+            magentaLight.position.set(-5, 5, -5);
+            scene.add(magentaLight);
+
+            // ANIMÁLT NEON RÁCS UT
+            gridHelper = new THREE.GridHelper(100, 80, 0xff007f, 0x330044);
+            gridHelper.position.y = -0.5;
             scene.add(gridHelper);
+
+            // ====================================================
+            // NATÍV, RÉSZLETES CYBERPUNK P38 LAND ROVER MODELL
+            // ====================================================
+            carModel = new THREE.Group();
+
+            // Anyagok (Sötét grafit fém, izzó neon kék és pink elemek)
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x141419, roughness: 0.2, metalness: 0.8 });
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x050508, roughness: 0.0, metalness: 1.0 });
+            const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const neonPinkMat = new THREE.MeshBasicMaterial({ color: 0xff007f });
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x08080a, roughness: 0.7 });
+
+            // 1. Alváz / Fő kasztni (A P38 ikonikus szögletes alsó teste)
+            const bodyGeo = new THREE.BoxGeometry(1.7, 0.55, 3.8);
+            const bodyMesh = new THREE.Mesh(bodyGeo, metalMat);
+            bodyMesh.position.y = 0.4;
+            carModel.add(bodyMesh);
+
+            // 2. Motorháztető törés (A jellegzetes magasított P38 motorháztető él)
+            const hoodGeo = new THREE.BoxGeometry(1.68, 0.15, 1.2);
+            const hoodMesh = new THREE.Mesh(hoodGeo, metalMat);
+            hoodMesh.position.set(0, 0.65, 1.2);
+            carModel.add(hoodMesh);
+
+            // 3. Kabin (Utastér + szögletes ablakok)
+            const cabinGeo = new THREE.BoxGeometry(1.5, 0.55, 2.3);
+            const cabinMesh = new THREE.Mesh(cabinGeo, windowMat);
+            cabinMesh.position.set(0, 0.85, -0.4);
+            carModel.add(cabinMesh);
+
+            // 4. Lebegő tetőlemez (A P38 másik nagy stílusjegye a különálló tető)
+            const roofGeo = new THREE.BoxGeometry(1.54, 0.06, 2.34);
+            const roofMesh = new THREE.Mesh(roofGeo, metalMat);
+            roofMesh.position.set(0, 1.15, -0.4);
+            carModel.add(roofMesh);
+
+            // 5. Ikonikus szögletes P38 fényszórók (Neon Cyan)
+            const lightGeo = new THREE.BoxGeometry(0.35, 0.15, 0.05);
+            const leftLight = new THREE.Mesh(lightGeo, neonCyanMat);
+            leftLight.position.set(0.6, 0.5, 1.91);
+            const rightLight = leftLight.clone();
+            rightLight.position.x = -0.6;
+            carModel.add(leftLight, rightLight);
+
+            // Hűtőrács neon csík a két lámpa között
+            const grillGeo = new THREE.BoxGeometry(0.7, 0.03, 0.05);
+            const grillMesh = new THREE.Mesh(grillGeo, neonCyanMat);
+            grillMesh.position.set(0, 0.5, 1.91);
+            carModel.add(grillMesh);
+
+            // 6. Hátsó szögletes lámpák (Neon Pink)
+            const tailLightGeo = new THREE.BoxGeometry(0.25, 0.2, 0.05);
+            const leftTail = new THREE.Mesh(tailLightGeo, neonPinkMat);
+            leftTail.position.set(0.65, 0.55, -1.91);
+            const rightTail = leftTail.clone();
+            rightTail.position.x = -0.65;
+            carModel.add(leftTail, rightTail);
+
+            // 7. Kerekek terepgumival és világító neon felnivel
+            const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 16);
+            const rimGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.32, 16); // Picit kilógó neon felni
+            
+            // Kerék pozíciók (X, Y, Z koordináták)
+            const wheelPositions = [
+                {x: 0.85, y: 0.2, z: 1.1},   // Jobb első
+                {x: -0.85, y: 0.2, z: 1.1},  // Bal első
+                {x: 0.85, y: 0.2, z: -1.1},  // Jobb hátsó
+                {x: -0.85, y: 0.2, z: -1.1}   // Bal hátsó
+            ];
+
+            wheelPositions.forEach(pos => {
+                const wMesh = new THREE.Mesh(wheelGeo, wheelMat);
+                const rMesh = new THREE.Mesh(rimGeo, neonPinkMat);
+                
+                // A Three.js-ben a hengereket el kell forgatni, hogy autókerék állásuk legyen
+                wMesh.rotation.z = Math.PI / 2;
+                rMesh.rotation.z = Math.PI / 2;
+
+                const wheelGroup = new THREE.Group();
+                wheelGroup.add(wMesh, rMesh);
+                wheelGroup.position.set(pos.x, pos.y, pos.z);
+                
+                carModel.add(wheelGroup);
+            });
+
+            // 8. Kiber-Tetőcsomagtartó (Expedíciós Overland stílus vékony neon csövekből)
+            const rackGeo1 = new THREE.BoxGeometry(1.4, 0.03, 2.0);
+            const rackMesh1 = new THREE.Mesh(rackGeo1, neonCyanMat);
+            rackMesh1.position.set(0, 1.25, -0.4);
+            carModel.add(rackMesh1);
+
+            scene.add(carModel);
 
             window.addEventListener('resize', onWindowResize, false);
             animate();
@@ -186,18 +258,23 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Végtelenített neon út mozgása
+            if (controls) controls.update();
+
+            // Végtelenített neon út haladása hátrafelé
             gridHelper.position.z += driveSpeed;
             if (gridHelper.position.z >= 1.0) {
                 gridHelper.position.z -= 1.0;
             }
 
+            // SIMA, VALÓS IDEJŰ DŐLÉSKÖVETÉS (Csak a kocsit forgatjuk, a világ fix marad!)
+            carModel.rotation.x += (currentPitch - carModel.rotation.x) * 0.15;
+            carModel.rotation.z += (currentRoll - carModel.rotation.z) * 0.15;
+
             renderer.render(scene, camera);
         }
 
-        // Giroszkóp adatok leképezése a HTML/CSS Kiber-műszerfalra
+        // Giroszkóp kezelése Apple és Android eszközökön
         const startBtn = document.getElementById('start-btn');
-        const sloydContainer = document.getElementById('sloyd-container');
 
         startBtn.addEventListener('click', function() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -206,14 +283,14 @@
                         if (permissionState === 'granted') {
                             window.addEventListener('deviceorientation', handleOrientation, true);
                             isCalibrated = false;
-                            startBtn.innerText = "RESET SYSTEM";
+                            startBtn.innerText = "RESET SYSTEM CALIBRATION";
                         }
                     })
                     .catch(console.error);
             } else {
                 window.addEventListener('deviceorientation', handleOrientation, true);
                 isCalibrated = false;
-                startBtn.innerText = "RESET SYSTEM";
+                startBtn.innerText = "RESET SYSTEM CALIBRATION";
             }
         });
 
@@ -221,6 +298,7 @@
             let rawPitch = 0;
             let rawRoll = 0;
 
+            // IPAD LANDSCAPE KONFIGURÁCIÓ
             if (window.orientation === 90) {
                 rawPitch = -event.gamma;
                 rawRoll = -event.beta;
@@ -244,14 +322,12 @@
             document.getElementById('val-pitch').innerText = Math.round(finalPitch);
             document.getElementById('val-roll').innerText = Math.round(finalRoll);
 
-            // CSS 3D TRANSZFORMÁCIÓ: A teljes beágyazott Sloyd panelt elforgatjuk a térben
-            // Pitch (bólintás) = X tengely körüli forgás
-            // Roll (oldaldőlés) = Z tengely körüli forgás
-            // A mínusz jelek azért kellenek, hogy a dőlés iránya megegyezzen a fizikai mozgással
-            sloydContainer.style.transform = `rotateX(${-finalPitch}deg) rotateZ(${-finalRoll}deg)`;
+            // Radiánba váltás a Three.js motor számára
+            currentPitch = finalPitch * (Math.PI / 180);
+            currentRoll = finalRoll * (Math.PI / 180);
         }
 
-        initBackgroundGrid();
+        init3D();
     </script>
 </body>
 </html>
