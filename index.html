@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P38 Inclinometer Prototípus</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #121212;
+            font-family: sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .btn {
+            background: rgba(30, 30, 30, 0.8);
+            color: #00ff66;
+            border: 2px solid #00ff66;
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0, 255, 102, 0.2);
+            transition: all 0.2s ease;
+            align-self: center;
+        }
+        .btn:active {
+            transform: scale(0.95);
+            background: #00ff66;
+            color: #121212;
+        }
+        #telemetry {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            color: #ffffff;
+            font-size: 18px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+        .angle-box {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 15px;
+            border-radius: 5px;
+            border-left: 3px solid #00ff66;
+        }
+    </style>
+    <!-- Three.js beágyazása -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="telemetry">
+            <div class="angle-box">ROLL (Dőlés): <span id="val-roll">0</span>°</div>
+            <div class="angle-box">PITCH (Bólintás): <span id="val-pitch">0</span>°</div>
+        </div>
+        <button id="start-btn" class="btn">KALIBRÁLÁS ÉS INDÍTÁS</button>
+    </div>
+
+    <script>
+        let scene, camera, renderer, carModel;
+        let basePitch = 0, baseRoll = 0;
+        let currentPitch = 0, currentRoll = 0;
+        let isCalibrated = false;
+
+        // 1. Háromdimenziós tér inicializálása
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x121212);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 2, 7); // Kicsit fentről és hátulról nézzük a kocsit
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Fények
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // Rács (talaj érzékeltetésére)
+            const gridHelper = new THREE.GridHelper(20, 20, 0x00ff66, 0x444444);
+            gridHelper.position.y = -0.5;
+            scene.add(gridHelper);
+
+            // PROTOTÍPUS AUTÓ (Egyelőre primitív formákból: alváz + fülke)
+            carModel = new THREE.Group();
+
+            // Karosszéria (Zöld doboz mint a Land Rover)
+            const bodyGeo = new THREE.BoxGeometry(1.6, 0.6, 3.5);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1f3d24, roughness: 0.2 });
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            bodyMesh.position.y = 0.3;
+            carModel.add(bodyMesh);
+
+            // Fülke
+            const cabinGeo = new THREE.BoxGeometry(1.4, 0.6, 1.8);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.1 });
+            const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
+            cabinMesh.position.set(0, 0.9, -0.2);
+            carModel.add(cabinMesh);
+
+            // Első lámpák (hogy lásd merre van az előre)
+            const lightGeo = new THREE.BoxGeometry(0.3, 0.15, 0.1);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+            const leftLight = new THREE.Mesh(lightGeo, lightMat);
+            leftLight.position.set(0.6, 0.3, 1.76);
+            const rightLight = leftLight.clone();
+            rightLight.position.x = -0.6;
+            carModel.add(leftLight, rightLight);
+
+            scene.add(carModel);
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Sima átmenet a mozgásban (Damping / Lerp)
+            carModel.rotation.x += (currentPitch - carModel.rotation.x) * 0.1;
+            carModel.rotation.z += (currentRoll - carModel.rotation.z) * 0.1;
+
+            renderer.render(scene, camera);
+        }
+
+        // 2. Gyorsulásmérő és kalibráció kezelése
+        const startBtn = document.getElementById('start-btn');
+
+        startBtn.addEventListener('click', function() {
+            // iOS Engedélykérés (Safari megköveteli)
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation, true);
+                            isCalibrated = false; // Következő adatcsomagnál nulláz
+                            startBtn.innerText = "NULLÁZÁS / RESET";
+                        } else {
+                            alert('A giroszkóp hozzáférés megtagadva.');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Nem iOS eszközök (Android / PC teszt)
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                isCalibrated = false;
+                startBtn.innerText = "NULLÁZÁS / RESET";
+            }
+        });
+
+        function handleOrientation(event) {
+            let rawPitch = 0;
+            let rawRoll = 0;
+
+            // IPAD LANDSCAPE (Fektetett) MÓD LEKÉPZÉSE
+            // Amikor az iPad el van forgatva, a Beta és Gamma tengelyek felcserélődnek
+            if (window.orientation === 90) {
+                rawPitch = -event.gamma;
+                rawRoll = -event.beta;
+            } else if (window.orientation === -90) {
+                rawPitch = event.gamma;
+                rawRoll = event.beta;
+            } else {
+                // Álló mód (csak teszthez)
+                rawPitch = event.beta;
+                rawRoll = event.gamma;
+            }
+
+            // Első lefutáskor vagy Reset gomb megnyomásakor kalibrál
+            if (!isCalibrated) {
+                basePitch = rawPitch;
+                baseRoll = rawRoll;
+                isCalibrated = true;
+            }
+
+            // Relatív szög kiszámítása a kalibrált ponthoz képest
+            let finalPitch = rawPitch - basePitch;
+            let finalRoll = rawRoll - baseRoll;
+
+            // UI értékek frissítése (fokokban kerekítve)
+            document.getElementById('val-pitch').innerText = Math.round(finalPitch);
+            document.getElementById('val-roll').innerText = Math.round(finalRoll);
+
+            // Átváltás radiánba a Three.js motor számára
+            currentPitch = finalPitch * (Math.PI / 180);
+            currentRoll = finalRoll * (Math.PI / 180);
+        }
+
+        // Indítás
+        init3D();
+    </script>
+</body>
+</html>
