@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kiosk Touch Interface - Range Rover P38</title>
+    <title>Kiosk Touch Interface - Range Rover 1998</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -75,4 +75,57 @@
 
         .data-stream {
             font-size: 13px; line-height: 1.6;
-            border-left: 2px solid var(--neon-
+            border-left: 2px solid var(--neon-cyan);
+            padding-left: 10px; margin-bottom: 15px;
+        }
+
+        .crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px; height: 120px;
+            border: 1px dashed rgba(0, 243, 255, 0.2);
+            border-radius: 50%;
+            pointer-events: none; z-index: 2;
+        }
+
+        #loading-overlay {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+    <div class="crosshair"></div>
+
+    <div id="loading-overlay">DRACO MÁTRIX DEKÓDOLÁSA...</div>
+
+    <div id="hud-header" class="hud-panel tech-frame">
+        <div style="font-size: 20px; font-weight: bold;">M-ENGINE // RANGE ROVER 1998</div>
+        <div id="global-status" class="system-status">● DIAGNOSTICS ONLINE</div>
+    </div>
+
+    <div id="hud-left" class="hud-panel tech-frame">
+        <div>
+            <h3 style="color: var(--neon-orange); margin-top:0;">TELEMETRIA</h3>
+            <div class="data-stream">
+                DŐLÉSSZÖG X: <span id="tilt-x">0.00°</span><br>
+                DŐLÉSSZÖG Z: <span id="tilt-z">0.00°</span>
+            </div>
