@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>P38 Holographic HUD v8</title>
+    <title>P38 Holographic HUD v7</title>
     <style>
         body {
             margin: 0;
@@ -146,7 +146,7 @@
 
         <div style="display: flex; flex-direction: column; align-self: center;">
             <button id="start-btn" class="btn">ENGAGE HUD SYSTEM</button>
-            <div id="sys-status">GRID_STATUS: ACTIVE // MODEL_RENDER: LOADING_P38_GLB...</div>
+            <div id="sys-status">GRID_STATUS: ACTIVE // MODEL_RENDER: LOADING_COMPRESSED_GLB...</div>
         </div>
     </div>
 
@@ -181,66 +181,66 @@
             controls.maxPolarAngle = Math.PI / 2 - 0.02; 
             controls.target.set(0, 0.4, 0);
 
-            // Lineáris futóút a háttérben (nagyon halvány kék vektorvonalak)
+            // Lineáris futóút a háttérben
             linearGrid = new THREE.GridHelper(100, 60, 0x00ffff, 0x002244);
             linearGrid.position.y = -0.5;
             linearGrid.material.opacity = 0.2;
             linearGrid.material.transparent = true;
             scene.add(linearGrid);
 
-            // Fő csoport létrehozása, ami a dőléseket és a radargyűrűt összefogja
+            // Fő konténer az autónak és az alatta lévő gyűrűnek
             carModel = new THREE.Group();
 
             // HOLOGRAM RADAR-GYŰRŰ AZ AUTÓ ALATT
             radarGrid = new THREE.PolarGridHelper(2.3, 4, 8, 32, 0x00ffff, 0x004466);
-            radarGrid.position.y = -0.4; 
+            radarGrid.position.y = -0.1; 
             radarGrid.material.transparent = true;
             radarGrid.material.opacity = 0.6;
             carModel.add(radarGrid);
 
             // ====================================================
-            // GLB MODELL BETÖLTÉSE ÉS HOLOGRAMMÁ ALAKÍTÁSA
+            // TÖMÖRÍTETT GLB MODELL BETÖLTÉSE & HOLOGRAMMÁ ALAKÍTÁSA
             // ====================================================
             const loader = new THREE.GLTFLoader();
-            loader.load('Range Rover P38.glb', function (gltf) {
+            loader.load('Range_Rover_1998.glb', function (gltf) {
                 const importedScene = gltf.scene;
 
-                // Végigmegyünk a modell összes elemén, és átírjuk a külsejét neon drótvázzá
+                // Az összes belső mesh-t átírjuk neonkék drótvázas anyaggá
                 importedScene.traverse(function (child) {
                     if (child.isMesh) {
                         child.material = new THREE.MeshBasicMaterial({
                             color: 0x00ffff,
                             wireframe: true,
                             transparent: true,
-                            opacity: 0.75
+                            opacity: 0.5
                         });
                     }
                 });
 
-                // Automatikus méretezés és középre igazítás (Befoglaló doboz alapján)
+                // Automatikus méretre skálázás és középpont igazítás a HUD-hoz
                 const box = new THREE.Box3().setFromObject(importedScene);
                 const size = box.getSize(new THREE.Vector3());
                 const center = box.getCenter(new THREE.Vector3());
 
-                // Modell középpontjának nullázása a forgástengelyhez
+                // Modell eltolása a saját forgástengelyének közepére
                 importedScene.position.x = -center.x;
-                importedScene.position.y = -box.min.y - 0.4; // Az alja finoman illeszkedjen a radargyűrűhöz
+                importedScene.position.y = -box.min.y - 0.1; // Finoman üljön a radar rácson
                 importedScene.position.z = -center.z;
 
-                // Skálázás, hogy arányos maradjon a HUD térben (kb 3.8 egység hosszúság)
-                const targetLength = 3.8;
-                const scaleFactor = targetLength / Math.max(size.x, size.y, size.z);
+                // Arányos átméretezés a korábbi 3.8-as fix mérethez
+                const maxDimension = Math.max(size.x, size.y, size.z);
+                const targetScale = 3.8 / maxDimension;
                 
-                const pivotGroup = new THREE.Group();
-                pivotGroup.add(importedScene);
-                pivotGroup.scale.setScalar(scaleFactor);
+                const pivotWrapper = new THREE.Group();
+                pivotWrapper.add(importedScene);
+                pivotWrapper.scale.setScalar(targetScale);
 
-                // Hozzáadjuk a dőlésért felelős fő csoporthoz
-                carModel.add(pivotGroup);
-                
-                document.getElementById('sys-status').innerText = "GRID_STATUS: ACTIVE // MODEL_RENDER: P38_GLB_HOLOGRAM";
+                // Hozzáadjuk a dőlésért felelős csoporthoz
+                carModel.add(pivotWrapper);
+
+                document.getElementById('sys-status').innerText = "GRID_STATUS: ACTIVE // MODEL_RENDER: GLB_WIREFRAME_V7";
             }, undefined, function (error) {
-                console.error("Hiba történt a GLB betöltésekor:", error);
+                console.error("Nem sikerült a GLB betöltése:", error);
                 document.getElementById('sys-status').innerText = "GRID_STATUS: ACTIVE // MODEL_RENDER: LOAD_ERROR";
             });
 
@@ -267,12 +267,12 @@
                 linearGrid.position.z -= 1.0;
             }
 
-            // Az autó alatti radar-gyűrű finom, sci-fi jellegű forgatása
+            // Az autó alatti radar-gyűrű finom forgatása
             if (radarGrid) {
                 radarGrid.rotation.y += 0.005;
             }
 
-            // A BETÖLTÖTT MODELL + RADAR EGYÜTTES FIZIKAI DŐLÉSE (Lerp)
+            // AUTÓ + RADAR EGYÜTTES FIZIKAI DŐLÉSE (Lerp)
             carModel.rotation.x += (currentPitch - carModel.rotation.x) * 0.15;
             carModel.rotation.z += (currentRoll - carModel.rotation.z) * 0.15;
 
@@ -304,7 +304,7 @@
             let rawPitch = 0;
             let rawRoll = 0;
 
-            // IPAD FEKVŐ (LANDSCAPE) MÓD KEZELÉSE
+            // IPAD FEKVŐ MÓD KEZELÉSE
             if (window.orientation === 90) {
                 rawPitch = -event.gamma;
                 rawRoll = -event.beta;
@@ -328,7 +328,7 @@
             document.getElementById('val-pitch').innerText = Math.round(finalPitch);
             document.getElementById('val-roll').innerText = Math.round(finalRoll);
 
-            // Three.js radián átváltás
+            // Three.js radián konverzió
             currentPitch = finalPitch * (Math.PI / 180);
             currentRoll = finalRoll * (Math.PI / 180);
         }
