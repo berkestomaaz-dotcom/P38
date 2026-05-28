@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kiosk Cyber Interface v3</title>
+    <title>Kiosk Cyber Interface - Pure Vector</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -24,10 +24,11 @@
             touch-action: none;
         }
 
+        /* CRT monitor hatású csíkozás */
         .crt-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.04));
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
             background-size: 100% 4px, 6px 100%;
             z-index: 10;
             pointer-events: none;
@@ -80,11 +81,6 @@
             padding-left: 10px; margin-bottom: 15px;
         }
 
-        #model-source-tag {
-            color: var(--neon-orange);
-            font-weight: bold;
-        }
-
         .crosshair {
             position: absolute;
             top: 50%; left: 50%;
@@ -100,10 +96,7 @@
             50% { opacity: 0.4; }
         }
     </style>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
 </head>
 <body>
 
@@ -112,14 +105,14 @@
 
     <div id="hud-header" class="hud-panel tech-frame">
         <div style="font-size: 18px; font-weight: bold; letter-spacing: 2px;">VECTOR // CORE ENGINE</div>
-        <div id="global-status" class="system-status">● SYSTEM RUNNING</div>
+        <div id="global-status" class="system-status">● SYSTEM ONLINE</div>
     </div>
 
     <div id="hud-left" class="hud-panel tech-frame">
         <div>
             <h3 style="color: var(--neon-orange); margin-top:0; letter-spacing: 1px;">TELEMETRIA</h3>
             <div class="data-stream">
-                REDSZER MOD: <span id="model-source-tag">INITIALIZING</span><br>
+                RENDSZER MÓD: <span style="color: var(--neon-cyan)">INTERNAL VECTORS</span><br>
                 ROTATION X: <span id="tilt-x">0.00°</span><br>
                 ROTATION Z: <span id="tilt-z">0.00°</span>
             </div>
@@ -129,13 +122,13 @@
                 JOBB OLDAL: <span id="glow-r">0%</span>
             </div>
         </div>
-        <div style="font-size: 11px; color: rgba(0,243,255,0.4);">SECURE CORE INTERFACE_</div>
+        <div style="font-size: 11px; color: rgba(0,243,255,0.4);">PURE PROCEDURAL ENGINE v1.0_</div>
     </div>
 
     <div id="hud-right" class="hud-panel tech-frame">
         <h3 style="margin-top:0; letter-spacing: 1px;">FELHASZNÁLÁS</h3>
         <p style="font-size: 13px; color: #88a0c0; line-height: 1.6; text-align: justify;">
-            Érintsd meg a kijelzőt az autó dőlésszögének módosításához. Elengedéskor a rendszer lágyan visszaáll alapállapotba és folytatja az automatikus körbeforgást.
+            Érintsd meg vagy húzd az egeret a kijelzőn az autó dőlésszögének módosításához. Elengedéskor a rendszer lágyan visszaáll alapállapotba és folytatja a bemutató forgást.
         </p>
         <div style="margin-top: 40px; border: 1px dashed var(--neon-cyan); padding: 12px; font-size: 12px; text-align: center; color: var(--neon-orange); animation: blink 3s infinite;">
             INTERAKTÍV KIOSZK RENDŐR
@@ -146,9 +139,8 @@
 
     <script>
         const container = document.getElementById('canvas-container');
-        const modelSourceTag = document.getElementById('model-source-tag');
 
-        // Alapvető 3D környezet felépítése
+        // Alapvető 3D Tér beállítása
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x02050d);
         scene.fog = new THREE.FogExp2(0x02050d, 0.005);
@@ -162,94 +154,107 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
-        // Érintőképernyős interakció kezelése
+        // Egér és Érintőképernyő kezelése egyben
         const touchState = { x: 0, y: 0, isTouching: false };
 
-        function handleTouch(e) {
-            if (e.touches.length > 0) {
-                const t = e.touches[0];
-                touchState.x = (t.clientX / window.innerWidth) * 2 - 1;
-                touchState.y = -(t.clientY / window.innerHeight) * 2 + 1;
-            }
+        function updateCoords(clientX, clientY) {
+            touchState.x = (clientX / window.innerWidth) * 2 - 1;
+            touchState.y = -(clientY / window.innerHeight) * 2 + 1;
         }
-        window.addEventListener('touchstart', (e) => { touchState.isTouching = true; handleTouch(e); }, { passive: true });
-        window.addEventListener('touchmove', (e) => { if (touchState.isTouching) handleTouch(e); }, { passive: true });
+
+        // Érintőképernyő események
+        window.addEventListener('touchstart', (e) => { touchState.isTouching = true; updateCoords(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+        window.addEventListener('touchmove', (e) => { if (touchState.isTouching) updateCoords(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
         window.addEventListener('touchend', () => { touchState.isTouching = false; touchState.x = 0; touchState.y = 0; }, { passive: true });
+
+        // Egér események (asztali teszteléshez)
+        window.addEventListener('mousedown', (e) => { touchState.isTouching = true; updateCoords(e.clientX, e.clientY); });
+        window.addEventListener('mousemove', (e) => { if (touchState.isTouching) updateCoords(e.clientX, e.clientY); });
+        window.addEventListener('mouseup', () => { touchState.isTouching = false; touchState.x = 0; touchState.y = 0; });
 
         // Neon rácsos padlózat
         const gridHelper = new THREE.GridHelper(300, 36, 0x00f3ff, 0x011526);
         gridHelper.position.y = -16;
         scene.add(gridHelper);
 
+        // Fő konténer az autónak
         let carGroup = new THREE.Group();
         scene.add(carGroup);
 
-        let leftGlowPlane, rightGlowPlane;
-        let activeModel = null;
-
-        // PROCEDURÁLIS CYBER-AUTÓ GENERÁLÁSA (Azonnali megjelenés, garantált futás)
-        function buildProceduralCyberCar() {
+        // --- TISZTA PROCEDURÁLIS AUTÓ ÉPÍTÉSE PRÍMITÍVEKBŐL ---
+        function buildCyberCar() {
             const group = new THREE.Group();
-            const wireMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.35 });
-            const solidMat = new THREE.MeshBasicMaterial({ color: 0x030d1a, transparent: true, opacity: 0.2 });
+            
+            // Anyagok: Finom áttetsző belső test + ragyogó vékony drótváz élek
+            const wireMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.4 });
+            const solidMat = new THREE.MeshBasicMaterial({ color: 0x030d1a, transparent: true, opacity: 0.25 });
 
-            const bodyGeo = new THREE.BoxGeometry(18, 5, 42);
+            // Alsó karosszéria
+            const bodyGeo = new THREE.BoxGeometry(20, 5, 46);
             group.add(new THREE.Mesh(bodyGeo, solidMat), new THREE.Mesh(bodyGeo, wireMat));
 
-            const cabinGeo = new THREE.BoxGeometry(14, 4, 22);
-            cabinGeo.translate(0, 4.5, -2);
+            // Felső utastér (Kabin)
+            const cabinGeo = new THREE.BoxGeometry(15, 4.5, 25);
+            cabinGeo.translate(0, 4.75, -2);
             group.add(new THREE.Mesh(cabinGeo, solidMat), new THREE.Mesh(cabinGeo, wireMat));
 
-            const wheelGeo = new THREE.CylinderGeometry(4, 4, 3.5, 12);
+            // Kerekek (Hengerek mint futurisztikus felnik)
+            const wheelGeo = new THREE.CylinderGeometry(4.5, 4.5, 4, 14);
             wheelGeo.rotateZ(Math.PI / 2);
-            const wPos = [[-9.5, -2, 13], [9.5, -2, 13], [-9.5, -2, -13], [9.5, -2, -13]];
-            wPos.forEach(([x, y, z]) => {
+            
+            const wheelPositions = [
+                [-10.5, -2, 14], [10.5, -2, 14],   // Első tengely
+                [-10.5, -2, -14], [10.5, -2, -14]  // Hátsó tengely
+            ];
+            
+            wheelPositions.forEach(([x, y, z]) => {
                 const wM = new THREE.Mesh(wheelGeo, solidMat); wM.position.set(x, y, z);
                 const wW = new THREE.Mesh(wheelGeo, wireMat); wW.position.set(x, y, z);
                 group.add(wM, wW);
             });
 
             group.position.y = 4;
-            return { model: group, width: 20, height: 9, depth: 44 };
+            return group;
         }
 
+        // Gradiens neonfény textúra generálása az alvázhoz
         function createGlowTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 16; canvas.height = 256;
             const ctx = canvas.getContext('2d');
             const gradient = ctx.createLinearGradient(0, 256, 0, 0); 
             gradient.addColorStop(0, 'rgba(0, 243, 255, 1)');
-            gradient.addColorStop(0.3, 'rgba(0, 243, 255, 0.35)');
+            gradient.addColorStop(0.3, 'rgba(0, 243, 255, 0.4)');
             gradient.addColorStop(1, 'rgba(0, 243, 255, 0)');
             ctx.fillStyle = gradient; ctx.fillRect(0, 0, 16, 256);
             return new THREE.CanvasTexture(canvas);
         }
 
-        function setupNeonGlowPanels(w, h, d) {
-            const glowGeo = new THREE.PlaneGeometry(d * 0.8, h * 0.4); 
+        // Oldalsó neon fénycsíkok felhelyezése
+        let leftGlowPlane, rightGlowPlane;
+        function setupNeonGlowPanels() {
+            const glowGeo = new THREE.PlaneGeometry(46 * 0.8, 9 * 0.4); 
             const glowTex = createGlowTexture();
             const matLeft = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
             const matRight = matLeft.clone();
 
             leftGlowPlane = new THREE.Mesh(glowGeo, matLeft);
             leftGlowPlane.rotation.y = Math.PI / 2;
-            leftGlowPlane.position.set(-w / 2 - 0.4, -h / 2 + 1.5, 0); 
+            leftGlowPlane.position.set(-10.5, -3, 0); 
             carGroup.add(leftGlowPlane);
 
             rightGlowPlane = new THREE.Mesh(glowGeo, matRight);
             rightGlowPlane.rotation.y = -Math.PI / 2;
-            rightGlowPlane.position.set(w / 2 + 0.4, -h / 2 + 1.5, 0); 
+            rightGlowPlane.position.set(10.5, -3, 0); 
             carGroup.add(rightGlowPlane);
         }
 
-        // Elsődleges inicializálás a stabil belső modellel
-        const fallback = buildProceduralCyberCar();
-        activeModel = fallback.model;
-        carGroup.add(activeModel);
-        setupNeonGlowPanels(fallback.width, fallback.height, fallback.depth);
-        modelSourceTag.innerText = "LOCAL CYBER-MESH";
+        // Autó hozzáadása a színtérhez
+        const cyberCar = buildCyberCar();
+        carGroup.add(cyberCar);
+        setupNeonGlowPanels();
 
-        // LÉTREHOZZUK AZ ANIMÁCIÓS CIKLUST (Most már biztosan elindul, nem tud lefagyni)
+        // HUD hivatkozások lekérése
         const hudTiltX = document.getElementById('tilt-x');
         const hudTiltZ = document.getElementById('tilt-z');
         const hudGlowL = document.getElementById('glow-l');
@@ -259,100 +264,52 @@
         let targetRotZ = 0;
         let autoRotationY = 0;
 
+        // --- ANIMÁCIÓS CIKLUS ---
         function animate() {
             requestAnimationFrame(animate);
 
-            if (activeModel && leftGlowPlane && rightGlowPlane) {
-                if (touchState.isTouching) {
-                    targetRotZ = -touchState.x * 0.22; 
-                    targetRotX = -touchState.y * 0.18;
-                } else {
-                    targetRotZ = 0; targetRotX = 0;
-                    autoRotationY += 0.005; 
-                    carGroup.rotation.y = autoRotationY;
-                }
-
-                carGroup.rotation.z = THREE.MathUtils.lerp(carGroup.rotation.z, targetRotZ, 0.08);
-                carGroup.rotation.x = THREE.MathUtils.lerp(carGroup.rotation.x, targetRotX, 0.08);
-
-                hudTiltX.innerText = (carGroup.rotation.x * (180/Math.PI)).toFixed(2) + '°';
-                hudTiltZ.innerText = (carGroup.rotation.z * (180/Math.PI)).toFixed(2) + '°';
-
-                let currentTiltZ = carGroup.rotation.z;
-                let opacityL = Math.max(0, -currentTiltZ * 3.5); 
-                let opacityR = Math.max(0, currentTiltZ * 3.5);
-
-                leftGlowPlane.material.opacity = THREE.MathUtils.clamp(opacityL, 0, 0.7);
-                rightGlowPlane.material.opacity = THREE.MathUtils.clamp(opacityR, 0, 0.7);
-
-                hudGlowL.innerText = Math.round(leftGlowPlane.material.opacity * 142) + '%';
-                hudGlowR.innerText = Math.round(rightGlowPlane.material.opacity * 142) + '%';
+            if (touchState.isTouching) {
+                // Ha nyomva tartják: követi a dőlésszöget
+                targetRotZ = -touchState.x * 0.22; 
+                targetRotX = -touchState.y * 0.18;
+            } else {
+                // Ha elengedik: visszaáll nullára a dőlés és finoman forog körbe
+                targetRotZ = 0; 
+                targetRotX = 0;
+                autoRotationY += 0.005; 
+                carGroup.rotation.y = autoRotationY;
             }
+
+            // Sima fizikai mozgás (Lerp)
+            carGroup.rotation.z = THREE.MathUtils.lerp(carGroup.rotation.z, targetRotZ, 0.08);
+            carGroup.rotation.x = THREE.MathUtils.lerp(carGroup.rotation.x, targetRotX, 0.08);
+
+            // Telemetria adatok frissítése fokokban
+            hudTiltX.innerText = (carGroup.rotation.x * (180/Math.PI)).toFixed(2) + '°';
+            hudTiltZ.innerText = (carGroup.rotation.z * (180/Math.PI)).toFixed(2) + '°';
+
+            // Dinamikus neon fényerő dőlés alapján (amelyik oldalra dől, ott felerősödik a neonfény)
+            let currentTiltZ = carGroup.rotation.z;
+            let opacityL = Math.max(0, -currentTiltZ * 3.5); 
+            let opacityR = Math.max(0, currentTiltZ * 3.5);
+
+            leftGlowPlane.material.opacity = THREE.MathUtils.clamp(opacityL, 0, 0.75);
+            rightGlowPlane.material.opacity = THREE.MathUtils.clamp(opacityR, 0, 0.75);
+
+            hudGlowL.innerText = Math.round(leftGlowPlane.material.opacity * 133) + '%';
+            hudGlowR.innerText = Math.round(rightGlowPlane.material.opacity * 133) + '%';
+
             renderer.render(scene, camera);
         }
-        animate();
 
-        // --- VÉDETT GLB TÖLTŐ BLOKK (Ha elhasal, a fenti kód attól még vidáman fut) ---
-        setTimeout(() => {
-            try {
-                if (typeof THREE.DRACOLoader === 'undefined') return;
-
-                const dracoLoader = new THREE.DRACOLoader();
-                dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
-
-                const loader = new THREE.GLTFLoader();
-                loader.setDRACOLoader(dracoLoader);
-
-                loader.load('Range_Rover_1998.glb', function(gltf) {
-                    // Ha sikeres a betöltés, lecseréljük a belső autót
-                    carGroup.remove(activeModel);
-                    
-                    const gltfModel = gltf.scene;
-                    const box = new THREE.Box3().setFromObject(gltfModel);
-                    const size = box.getSize(new THREE.Vector3());
-                    const center = box.getCenter(new THREE.Vector3());
-                    
-                    gltfModel.position.set(-center.x, -box.min.y - (size.y / 2) + 4, -center.z);
-                    
-                    // LETISZTULT DRÓTVÁZ ÁTALAKÍTÁS (65 fokos szűrés a szép, tiszta kontúrokért)
-                    gltfModel.traverse((child) => {
-                        if (child.isMesh) {
-                            const edges = new THREE.EdgesGeometry(child.geometry, 65); 
-                            const lineMaterial = new THREE.LineBasicMaterial({ 
-                                color: 0x00f3ff, transparent: true, opacity: 0.25 
-                            });
-                            const lineSegments = new THREE.LineSegments(edges, lineMaterial);
-                            child.add(lineSegments);
-
-                            child.material = new THREE.MeshBasicMaterial({
-                                color: 0x02050d, transparent: true, opacity: 0.3, side: THREE.DoubleSide
-                            });
-                        }
-                    });
-
-                    carGroup.add(gltfModel);
-                    activeModel = gltfModel;
-
-                    // Neonfények méretezése az új autóhoz
-                    carGroup.remove(leftGlowPlane);
-                    carGroup.remove(rightGlowPlane);
-                    setupNeonGlowPanels(size.x, size.y, size.z);
-
-                    modelSourceTag.innerText = "RANGE ROVER GLB";
-                    modelSourceTag.style.color = "var(--neon-cyan)";
-                }, undefined, function(e) {
-                    console.log("GLB betöltési korlátozás. Biztonsági mód aktív.");
-                });
-            } catch (err) {
-                console.log("A betöltő modul hibára futott, lokális mód fenntartva.");
-            }
-        }, 100);
-
+        // Ablak átméretezés kezelése
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        animate();
     </script>
 </body>
 </html>
