@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>P38 Holographic HUD v7</title>
+    <title>P38 Holographic HUD v7.1</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #040814; /* Mélykék/fekete tech háttér */
+            background-color: #040814;
             font-family: 'Courier New', Courier, monospace;
             -webkit-user-select: none;
             user-select: none;
@@ -23,114 +23,73 @@
             left: 0;
             z-index: 1;
         }
-        
-        /* CRT monitor és finom scifi zaj overlay */
         #crt-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            top: 0; left: 0; width: 100vw; height: 100vh;
             background: linear-gradient(rgba(0, 255, 255, 0) 50%, rgba(0, 0, 0, 0.4) 50%);
             background-size: 100% 3px;
             pointer-events: none;
             z-index: 20;
             opacity: 0.6;
         }
-
-        /* FIX HUD CÉLKERESZT A KÉPERNYŐ KÖZEPÉN */
         #hud-crosshair {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 100px;
-            height: 100px;
+            top: 50%; left: 50%; width: 100px; height: 100px;
             transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 5;
+            pointer-events: none; z-index: 5;
             border: 1px dashed rgba(0, 255, 255, 0.25);
             border-radius: 50%;
         }
         #hud-crosshair::before, #hud-crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(0, 255, 255, 0.4);
+            content: ''; position: absolute; background: rgba(0, 255, 255, 0.4);
         }
-        #hud-crosshair::before { top: 50%; left: -10px; width: 120px; height: 1px; } /* Vízszintes szál */
-        #hud-crosshair::after { left: 50%; top: -10px; width: 1px; height: 120px; } /* Függőleges szál */
+        #hud-crosshair::before { top: 50%; left: -10px; width: 120px; height: 1px; }
+        #hud-crosshair::after { left: 50%; top: -10px; width: 1px; height: 120px; }
 
         #ui-layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 30px;
-            box-sizing: border-box;
-            z-index: 10;
+            display: flex; flex-direction: column;
+            justify-content: space-between; padding: 30px;
+            box-sizing: border-box; z-index: 10;
         }
-        
-        /* HIGH-TECH HUD PANEL GRAPHICS */
         #telemetry {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            color: #00ffff;
-            font-size: 16px;
-            font-weight: bold;
+            display: flex; justify-content: space-between; width: 100%;
+            color: #00ffff; font-size: 16px; font-weight: bold;
             text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
         }
         .angle-box {
-            background: rgba(4, 12, 32, 0.6);
-            padding: 12px 20px;
-            border: 1px solid #00ffff;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            background: rgba(4, 12, 32, 0.6); padding: 12px 20px;
+            border: 1px solid #00ffff; box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
             position: relative;
         }
-        /* Sarokdíszek a tech dobozoknak */
         .angle-box::before {
             content: ''; position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; border-top: 3px solid #00ffff; border-left: 3px solid #00ffff;
         }
         .angle-box::after {
             content: ''; position: absolute; bottom: -3px; right: -3px; width: 8px; height: 8px; border-bottom: 3px solid #00ffff; border-right: 3px solid #00ffff;
         }
-
         .btn {
-            background: rgba(4, 12, 32, 0.8);
-            color: #00ffff;
-            border: 1px solid #00ffff;
-            padding: 15px 40px;
-            font-size: 14px;
-            font-weight: bold;
-            font-family: inherit;
-            cursor: pointer;
-            pointer-events: auto;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-            transition: all 0.2s ease;
-            align-self: center;
-            letter-spacing: 3px;
+            background: rgba(4, 12, 32, 0.8); color: #00ffff; border: 1px solid #00ffff;
+            padding: 15px 40px; font-size: 14px; font-weight: bold; font-family: inherit;
+            cursor: pointer; pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); transition: all 0.2s ease;
+            align-self: center; letter-spacing: 3px;
         }
         .btn:active {
-            transform: scale(0.95);
-            background: #00ffff;
-            color: #040814;
+            transform: scale(0.95); background: #00ffff; color: #040814;
             box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
         }
         #sys-status {
-            color: rgba(0, 255, 255, 0.5);
-            font-size: 11px;
-            text-align: center;
-            margin-top: 5px;
-            letter-spacing: 1px;
+            color: rgba(0, 255, 255, 0.5); font-size: 11px;
+            text-align: center; margin-top: 5px; letter-spacing: 1px;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
 </head>
 <body>
 
@@ -172,7 +131,6 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(renderer.domElement);
 
-            // GESTURE CONTROL (Ujjas forgatás és zoom)
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
@@ -181,17 +139,14 @@
             controls.maxPolarAngle = Math.PI / 2 - 0.02; 
             controls.target.set(0, 0.4, 0);
 
-            // Lineáris futóút a háttérben
             linearGrid = new THREE.GridHelper(100, 60, 0x00ffff, 0x002244);
             linearGrid.position.y = -0.5;
             linearGrid.material.opacity = 0.2;
             linearGrid.material.transparent = true;
             scene.add(linearGrid);
 
-            // Fő konténer az autónak és az alatta lévő gyűrűnek
             carModel = new THREE.Group();
 
-            // HOLOGRAM RADAR-GYŰRŰ AZ AUTÓ ALATT
             radarGrid = new THREE.PolarGridHelper(2.3, 4, 8, 32, 0x00ffff, 0x004466);
             radarGrid.position.y = -0.1; 
             radarGrid.material.transparent = true;
@@ -199,13 +154,19 @@
             carModel.add(radarGrid);
 
             // ====================================================
-            // TÖMÖRÍTETT GLB MODELL BETÖLTÉSE & HOLOGRAMMÁ ALAKÍTÁSA
+            // TÖMÖRÍTETT GLB BETÖLTÉSE DRACO DEKÓDERREL
             // ====================================================
             const loader = new THREE.GLTFLoader();
+            
+            // Draco kicsomagoló inicializálása Google CDN használatával
+            const dracoLoader = new THREE.DRACOLoader();
+            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.3/');
+            loader.setDRACOLoader(dracoLoader);
+
+            // FIGYELEM: Ellenőrizd, hogy a fájlneved pontosan ez-e (kis/nagybetűk, aláhúzások)!
             loader.load('Range_Rover_1998.glb', function (gltf) {
                 const importedScene = gltf.scene;
 
-                // Az összes belső mesh-t átírjuk neonkék drótvázas anyaggá
                 importedScene.traverse(function (child) {
                     if (child.isMesh) {
                         child.material = new THREE.MeshBasicMaterial({
@@ -217,17 +178,14 @@
                     }
                 });
 
-                // Automatikus méretre skálázás és középpont igazítás a HUD-hoz
                 const box = new THREE.Box3().setFromObject(importedScene);
                 const size = box.getSize(new THREE.Vector3());
                 const center = box.getCenter(new THREE.Vector3());
 
-                // Modell eltolása a saját forgástengelyének közepére
                 importedScene.position.x = -center.x;
-                importedScene.position.y = -box.min.y - 0.1; // Finoman üljön a radar rácson
+                importedScene.position.y = -box.min.y - 0.1; 
                 importedScene.position.z = -center.z;
 
-                // Arányos átméretezés a korábbi 3.8-as fix mérethez
                 const maxDimension = Math.max(size.x, size.y, size.z);
                 const targetScale = 3.8 / maxDimension;
                 
@@ -235,7 +193,6 @@
                 pivotWrapper.add(importedScene);
                 pivotWrapper.scale.setScalar(targetScale);
 
-                // Hozzáadjuk a dőlésért felelős csoporthoz
                 carModel.add(pivotWrapper);
 
                 document.getElementById('sys-status').innerText = "GRID_STATUS: ACTIVE // MODEL_RENDER: GLB_WIREFRAME_V7";
@@ -261,25 +218,21 @@
 
             if (controls) controls.update();
 
-            // Végtelenített lineáris háttér-út mozgása hátrafelé
             linearGrid.position.z += driveSpeed;
             if (linearGrid.position.z >= 1.0) {
                 linearGrid.position.z -= 1.0;
             }
 
-            // Az autó alatti radar-gyűrű finom forgatása
             if (radarGrid) {
                 radarGrid.rotation.y += 0.005;
             }
 
-            // AUTÓ + RADAR EGYÜTTES FIZIKAI DŐLÉSE (Lerp)
             carModel.rotation.x += (currentPitch - carModel.rotation.x) * 0.15;
             carModel.rotation.z += (currentRoll - carModel.rotation.z) * 0.15;
 
             renderer.render(scene, camera);
         }
 
-        // Giroszkóp kalibráció és engedélyezés
         const startBtn = document.getElementById('start-btn');
 
         startBtn.addEventListener('click', function() {
@@ -301,25 +254,18 @@
         });
 
         function handleOrientation(event) {
-            let rawPitch = 0;
-            let rawRoll = 0;
+            let rawPitch = 0, rawRoll = 0;
 
-            // IPAD FEKVŐ MÓD KEZELÉSE
             if (window.orientation === 90) {
-                rawPitch = -event.gamma;
-                rawRoll = -event.beta;
+                rawPitch = -event.gamma; rawRoll = -event.beta;
             } else if (window.orientation === -90) {
-                rawPitch = event.gamma;
-                rawRoll = event.beta;
+                rawPitch = event.gamma; rawRoll = event.beta;
             } else {
-                rawPitch = event.beta;
-                rawRoll = event.gamma;
+                rawPitch = event.beta; rawRoll = event.gamma;
             }
 
             if (!isCalibrated) {
-                basePitch = rawPitch;
-                baseRoll = rawRoll;
-                isCalibrated = true;
+                basePitch = rawPitch; baseRoll = rawRoll; isCalibrated = true;
             }
 
             let finalPitch = rawPitch - basePitch;
@@ -328,7 +274,6 @@
             document.getElementById('val-pitch').innerText = Math.round(finalPitch);
             document.getElementById('val-roll').innerText = Math.round(finalRoll);
 
-            // Three.js radián konverzió
             currentPitch = finalPitch * (Math.PI / 180);
             currentRoll = finalRoll * (Math.PI / 180);
         }
