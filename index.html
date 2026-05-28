@@ -3,144 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kiosk Cyber Interface - Pure Vector</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>Pure 3D Car Scene</title>
     <style>
-        :root {
-            --neon-cyan: #00f3ff;
-            --neon-orange: #ff5500;
-            --bg-dark: #02050d;
-            --panel-alpha: rgba(4, 10, 20, 0.9);
-        }
-
         body, html {
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            background-color: var(--bg-dark);
-            font-family: 'Share Tech Mono', monospace;
-            color: var(--neon-cyan);
-            user-select: none;
-            touch-action: none;
+            background-color: #02050d;
         }
-
-        /* CRT monitor hatású csíkozás */
-        .crt-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-            background-size: 100% 4px, 6px 100%;
-            z-index: 10;
-            pointer-events: none;
-        }
-
         #canvas-container {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
-        }
-
-        .hud-panel {
-            position: absolute;
-            z-index: 5;
-            background: var(--panel-alpha);
-            border: 1px solid var(--neon-cyan);
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
-            padding: 15px;
-            box-sizing: border-box;
-        }
-
-        .tech-frame {
-            clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px));
-        }
-
-        #hud-header {
-            top: 20px; left: 20px; right: 20px; height: 60px;
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0 30px; font-family: 'Orbitron', sans-serif;
-            border-bottom: 2px solid var(--neon-cyan);
-        }
-
-        .system-status {
-            color: var(--neon-cyan);
-            animation: blink 2s infinite;
-        }
-
-        #hud-left {
-            top: 100px; left: 20px; width: 280px; bottom: 30px;
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
-
-        #hud-right {
-            top: 100px; right: 20px; width: 300px; bottom: 30px;
-        }
-
-        .data-stream {
-            font-size: 13px; line-height: 1.6;
-            border-left: 2px solid var(--neon-cyan);
-            padding-left: 10px; margin-bottom: 15px;
-        }
-
-        .crosshair {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 160px; height: 160px;
-            border: 1px dashed rgba(0, 243, 255, 0.15);
-            border-radius: 50%;
-            pointer-events: none; z-index: 2;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+            width: 100%;
+            height: 100%;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <div class="crt-overlay"></div>
-    <div class="crosshair"></div>
-
-    <div id="hud-header" class="hud-panel tech-frame">
-        <div style="font-size: 18px; font-weight: bold; letter-spacing: 2px;">VECTOR // CORE ENGINE</div>
-        <div id="global-status" class="system-status">● SYSTEM ONLINE</div>
-    </div>
-
-    <div id="hud-left" class="hud-panel tech-frame">
-        <div>
-            <h3 style="color: var(--neon-orange); margin-top:0; letter-spacing: 1px;">TELEMETRIA</h3>
-            <div class="data-stream">
-                RENDSZER MÓD: <span style="color: var(--neon-cyan)">INTERNAL VECTORS</span><br>
-                ROTATION X: <span id="tilt-x">0.00°</span><br>
-                ROTATION Z: <span id="tilt-z">0.00°</span>
-            </div>
-            <div class="data-stream" style="border-color: var(--neon-orange)">
-                ALSÓ NEON GLOW:<br>
-                BAL OLDAL: <span id="glow-l">0%</span><br>
-                JOBB OLDAL: <span id="glow-r">0%</span>
-            </div>
-        </div>
-        <div style="font-size: 11px; color: rgba(0,243,255,0.4);">PURE PROCEDURAL ENGINE v1.0_</div>
-    </div>
-
-    <div id="hud-right" class="hud-panel tech-frame">
-        <h3 style="margin-top:0; letter-spacing: 1px;">FELHASZNÁLÁS</h3>
-        <p style="font-size: 13px; color: #88a0c0; line-height: 1.6; text-align: justify;">
-            Érintsd meg vagy húzd az egeret a kijelzőn az autó dőlésszögének módosításához. Elengedéskor a rendszer lágyan visszaáll alapállapotba és folytatja a bemutató forgást.
-        </p>
-        <div style="margin-top: 40px; border: 1px dashed var(--neon-cyan); padding: 12px; font-size: 12px; text-align: center; color: var(--neon-orange); animation: blink 3s infinite;">
-            INTERAKTÍV KIOSZK RENDŐR
-        </div>
-    </div>
-
     <div id="canvas-container"></div>
 
     <script>
         const container = document.getElementById('canvas-container');
 
-        // Alapvető 3D Tér beállítása
+        // 3D Alapkörnyezet
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x02050d);
         scene.fog = new THREE.FogExp2(0x02050d, 0.005);
@@ -154,7 +41,7 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
-        // Egér és Érintőképernyő kezelése egyben
+        // Interakció kezelése (Egér és Érintőképernyő)
         const touchState = { x: 0, y: 0, isTouching: false };
 
         function updateCoords(clientX, clientY) {
@@ -162,12 +49,10 @@
             touchState.y = -(clientY / window.innerHeight) * 2 + 1;
         }
 
-        // Érintőképernyő események
         window.addEventListener('touchstart', (e) => { touchState.isTouching = true; updateCoords(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
         window.addEventListener('touchmove', (e) => { if (touchState.isTouching) updateCoords(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
         window.addEventListener('touchend', () => { touchState.isTouching = false; touchState.x = 0; touchState.y = 0; }, { passive: true });
 
-        // Egér események (asztali teszteléshez)
         window.addEventListener('mousedown', (e) => { touchState.isTouching = true; updateCoords(e.clientX, e.clientY); });
         window.addEventListener('mousemove', (e) => { if (touchState.isTouching) updateCoords(e.clientX, e.clientY); });
         window.addEventListener('mouseup', () => { touchState.isTouching = false; touchState.x = 0; touchState.y = 0; });
@@ -181,30 +66,29 @@
         let carGroup = new THREE.Group();
         scene.add(carGroup);
 
-        // --- TISZTA PROCEDURÁLIS AUTÓ ÉPÍTÉSE PRÍMITÍVEKBŐL ---
+        // Az autó felépítése geometriai alakzatokból
         function buildCyberCar() {
             const group = new THREE.Group();
             
-            // Anyagok: Finom áttetsző belső test + ragyogó vékony drótváz élek
             const wireMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.4 });
             const solidMat = new THREE.MeshBasicMaterial({ color: 0x030d1a, transparent: true, opacity: 0.25 });
 
-            // Alsó karosszéria
+            // Karosszéria alsó része
             const bodyGeo = new THREE.BoxGeometry(20, 5, 46);
             group.add(new THREE.Mesh(bodyGeo, solidMat), new THREE.Mesh(bodyGeo, wireMat));
 
-            // Felső utastér (Kabin)
+            // Utastér / Kabin
             const cabinGeo = new THREE.BoxGeometry(15, 4.5, 25);
             cabinGeo.translate(0, 4.75, -2);
             group.add(new THREE.Mesh(cabinGeo, solidMat), new THREE.Mesh(cabinGeo, wireMat));
 
-            // Kerekek (Hengerek mint futurisztikus felnik)
+            // Kerekek
             const wheelGeo = new THREE.CylinderGeometry(4.5, 4.5, 4, 14);
             wheelGeo.rotateZ(Math.PI / 2);
             
             const wheelPositions = [
-                [-10.5, -2, 14], [10.5, -2, 14],   // Első tengely
-                [-10.5, -2, -14], [10.5, -2, -14]  // Hátsó tengely
+                [-10.5, -2, 14], [10.5, -2, 14],
+                [-10.5, -2, -14], [10.5, -2, -14]
             ];
             
             wheelPositions.forEach(([x, y, z]) => {
@@ -217,7 +101,7 @@
             return group;
         }
 
-        // Gradiens neonfény textúra generálása az alvázhoz
+        // Alsó neonfény textúra generálása
         function createGlowTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 16; canvas.height = 256;
@@ -230,7 +114,7 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        // Oldalsó neon fénycsíkok felhelyezése
+        // Oldalsó neon fénycsíkok az alvázra
         let leftGlowPlane, rightGlowPlane;
         function setupNeonGlowPanels() {
             const glowGeo = new THREE.PlaneGeometry(46 * 0.8, 9 * 0.4); 
@@ -249,31 +133,25 @@
             carGroup.add(rightGlowPlane);
         }
 
-        // Autó hozzáadása a színtérhez
+        // Objektumok inicializálása
         const cyberCar = buildCyberCar();
         carGroup.add(cyberCar);
         setupNeonGlowPanels();
-
-        // HUD hivatkozások lekérése
-        const hudTiltX = document.getElementById('tilt-x');
-        const hudTiltZ = document.getElementById('tilt-z');
-        const hudGlowL = document.getElementById('glow-l');
-        const hudGlowR = document.getElementById('glow-r');
 
         let targetRotX = 0;
         let targetRotZ = 0;
         let autoRotationY = 0;
 
-        // --- ANIMÁCIÓS CIKLUS ---
+        // Animációs ciklus
         function animate() {
             requestAnimationFrame(animate);
 
             if (touchState.isTouching) {
-                // Ha nyomva tartják: követi a dőlésszöget
+                // Interakció alatt követi a dőlést
                 targetRotZ = -touchState.x * 0.22; 
                 targetRotX = -touchState.y * 0.18;
             } else {
-                // Ha elengedik: visszaáll nullára a dőlés és finoman forog körbe
+                // Elengedéskor visszaáll és lágyan forog
                 targetRotZ = 0; 
                 targetRotX = 0;
                 autoRotationY += 0.005; 
@@ -284,25 +162,15 @@
             carGroup.rotation.z = THREE.MathUtils.lerp(carGroup.rotation.z, targetRotZ, 0.08);
             carGroup.rotation.x = THREE.MathUtils.lerp(carGroup.rotation.x, targetRotX, 0.08);
 
-            // Telemetria adatok frissítése fokokban
-            hudTiltX.innerText = (carGroup.rotation.x * (180/Math.PI)).toFixed(2) + '°';
-            hudTiltZ.innerText = (carGroup.rotation.z * (180/Math.PI)).toFixed(2) + '°';
-
-            // Dinamikus neon fényerő dőlés alapján (amelyik oldalra dől, ott felerősödik a neonfény)
+            // Neonfény intenzitás változtatása a dőlésszög függvényében
             let currentTiltZ = carGroup.rotation.z;
-            let opacityL = Math.max(0, -currentTiltZ * 3.5); 
-            let opacityR = Math.max(0, currentTiltZ * 3.5);
-
-            leftGlowPlane.material.opacity = THREE.MathUtils.clamp(opacityL, 0, 0.75);
-            rightGlowPlane.material.opacity = THREE.MathUtils.clamp(opacityR, 0, 0.75);
-
-            hudGlowL.innerText = Math.round(leftGlowPlane.material.opacity * 133) + '%';
-            hudGlowR.innerText = Math.round(rightGlowPlane.material.opacity * 133) + '%';
+            leftGlowPlane.material.opacity = THREE.MathUtils.clamp(Math.max(0, -currentTiltZ * 3.5), 0, 0.75);
+            rightGlowPlane.material.opacity = THREE.MathUtils.clamp(Math.max(0, currentTiltZ * 3.5), 0, 0.75);
 
             renderer.render(scene, camera);
         }
 
-        // Ablak átméretezés kezelése
+        // Ablakméret változás követése
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
