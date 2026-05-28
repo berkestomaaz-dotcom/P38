@@ -3,181 +3,349 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pure 3D Car Scene</title>
+    <title>P38 Holographic HUD v7</title>
     <style>
-        body, html {
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
             overflow: hidden;
-            background-color: #02050d;
+            background-color: #040814; /* Mélykék/fekete tech háttér */
+            font-family: 'Courier New', Courier, monospace;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
         }
         #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        /* CRT monitor és finom scifi zaj overlay */
+        #crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(0, 255, 255, 0) 50%, rgba(0, 0, 0, 0.4) 50%);
+            background-size: 100% 3px;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.6;
+        }
+
+        /* FIX HUD CÉLKERESZT A KÉPERNYŐ KÖZEPÉN */
+        #hud-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100px;
+            height: 100px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+            border: 1px dashed rgba(0, 255, 255, 0.25);
+            border-radius: 50%;
+        }
+        #hud-crosshair::before, #hud-crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 255, 0.4);
+        }
+        #hud-crosshair::before { top: 50%; left: -10px; width: 120px; height: 1px; } /* Vízszintes szál */
+        #hud-crosshair::after { left: 50%; top: -10px; width: 1px; height: 120px; } /* Függőleges szál */
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        
+        /* HIGH-TECH HUD PANEL GRAPHICS */
+        #telemetry {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            color: #00ffff;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+        }
+        .angle-box {
+            background: rgba(4, 12, 32, 0.6);
+            padding: 12px 20px;
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            position: relative;
+        }
+        /* Sarokdíszek a tech dobozoknak */
+        .angle-box::before {
+            content: ''; position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; border-top: 3px solid #00ffff; border-left: 3px solid #00ffff;
+        }
+        .angle-box::after {
+            content: ''; position: absolute; bottom: -3px; right: -3px; width: 8px; height: 8px; border-bottom: 3px solid #00ffff; border-right: 3px solid #00ffff;
+        }
+
+        .btn {
+            background: rgba(4, 12, 32, 0.8);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            padding: 15px 40px;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            transition: all 0.2s ease;
+            align-self: center;
+            letter-spacing: 3px;
+        }
+        .btn:active {
+            transform: scale(0.95);
+            background: #00ffff;
+            color: #040814;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        }
+        #sys-status {
+            color: rgba(0, 255, 255, 0.5);
+            font-size: 11px;
+            text-align: center;
+            margin-top: 5px;
+            letter-spacing: 1px;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
+    <div id="crt-overlay"></div>
+    <div id="hud-crosshair"></div>
     <div id="canvas-container"></div>
 
+    <div id="ui-layer">
+        <div id="telemetry">
+            <div class="angle-box">HUD.P38_ROLL // <span id="val-roll">0</span>°</div>
+            <div class="angle-box">HUD.P38_PITCH // <span id="val-pitch">0</span>°</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-self: center;">
+            <button id="start-btn" class="btn">ENGAGE HUD SYSTEM</button>
+            <div id="sys-status">GRID_STATUS: ACTIVE // MODEL_RENDER: WIREFRAME_V7</div>
+        </div>
+    </div>
+
     <script>
-        const container = document.getElementById('canvas-container');
+        let scene, camera, renderer, carModel, controls, linearGrid, radarGrid;
+        let basePitch = 0, baseRoll = 0;
+        let currentPitch = 0, currentRoll = 0;
+        let isCalibrated = false;
+        const driveSpeed = 0.12; 
 
-        // 3D Alapkörnyezet
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x02050d);
-        scene.fog = new THREE.FogExp2(0x02050d, 0.005);
-
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 25, 110);
-        camera.lookAt(0, 4, 0);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        container.appendChild(renderer.domElement);
-
-        // Interakció kezelése (Egér és Érintőképernyő)
-        const touchState = { x: 0, y: 0, isTouching: false };
-
-        function updateCoords(clientX, clientY) {
-            touchState.x = (clientX / window.innerWidth) * 2 - 1;
-            touchState.y = -(clientY / window.innerHeight) * 2 + 1;
-        }
-
-        window.addEventListener('touchstart', (e) => { touchState.isTouching = true; updateCoords(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-        window.addEventListener('touchmove', (e) => { if (touchState.isTouching) updateCoords(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-        window.addEventListener('touchend', () => { touchState.isTouching = false; touchState.x = 0; touchState.y = 0; }, { passive: true });
-
-        window.addEventListener('mousedown', (e) => { touchState.isTouching = true; updateCoords(e.clientX, e.clientY); });
-        window.addEventListener('mousemove', (e) => { if (touchState.isTouching) updateCoords(e.clientX, e.clientY); });
-        window.addEventListener('mouseup', () => { touchState.isTouching = false; touchState.x = 0; touchState.y = 0; });
-
-        // Neon rácsos padlózat
-        const gridHelper = new THREE.GridHelper(300, 36, 0x00f3ff, 0x011526);
-        gridHelper.position.y = -16;
-        scene.add(gridHelper);
-
-        // Fő konténer az autónak
-        let carGroup = new THREE.Group();
-        scene.add(carGroup);
-
-        // Az autó felépítése geometriai alakzatokból
-        function buildCyberCar() {
-            const group = new THREE.Group();
+        function init3D() {
+            const container = document.getElementById('canvas-container');
             
-            const wireMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.4 });
-            const solidMat = new THREE.MeshBasicMaterial({ color: 0x030d1a, transparent: true, opacity: 0.25 });
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x040814);
+            scene.fog = new THREE.FogExp2(0x040814, 0.08);
 
-            // Karosszéria alsó része
-            const bodyGeo = new THREE.BoxGeometry(20, 5, 46);
-            group.add(new THREE.Mesh(bodyGeo, solidMat), new THREE.Mesh(bodyGeo, wireMat));
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(3.5, 2.2, 5.5); 
 
-            // Utastér / Kabin
-            const cabinGeo = new THREE.BoxGeometry(15, 4.5, 25);
-            cabinGeo.translate(0, 4.75, -2);
-            group.add(new THREE.Mesh(cabinGeo, solidMat), new THREE.Mesh(cabinGeo, wireMat));
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
 
-            // Kerekek
-            const wheelGeo = new THREE.CylinderGeometry(4.5, 4.5, 4, 14);
-            wheelGeo.rotateZ(Math.PI / 2);
-            
-            const wheelPositions = [
-                [-10.5, -2, 14], [10.5, -2, 14],
-                [-10.5, -2, -14], [10.5, -2, -14]
-            ];
-            
-            wheelPositions.forEach(([x, y, z]) => {
-                const wM = new THREE.Mesh(wheelGeo, solidMat); wM.position.set(x, y, z);
-                const wW = new THREE.Mesh(wheelGeo, wireMat); wW.position.set(x, y, z);
-                group.add(wM, wW);
+            // GESTURE CONTROL (Ujjas forgatás és zoom)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 3;
+            controls.maxDistance = 12;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02; 
+            controls.target.set(0, 0.4, 0);
+
+            // Lineáris futóút a háttérben (nagyon halvány kék vektorvonalak)
+            linearGrid = new THREE.GridHelper(100, 60, 0x00ffff, 0x002244);
+            linearGrid.position.y = -0.5;
+            // Elhalványítjuk a rácsot, hogy ne zavarja a hologramot
+            linearGrid.material.opacity = 0.2;
+            linearGrid.material.transparent = true;
+            scene.add(linearGrid);
+
+            // ====================================================
+            // VEKTORHUD / HOLOGRAM P38 LAND ROVER MODELL ÉPÍTÉS
+            // ====================================================
+            carModel = new THREE.Group();
+
+            // Szuper-világító neonkék HUD vonal stílus
+            const hudLineMat = new THREE.LineBasicMaterial({ 
+                color: 0x00ffff, 
+                transparent: true, 
+                opacity: 0.85,
+                linewidth: 2 // Böngészőtől függően vastagítja a vonalakat
             });
 
-            group.position.y = 4;
-            return group;
+            // Segédfüggvény: testekből drótváz-vonalat csinál
+            function createWireframeComponent(geometry, posX, posY, posZ) {
+                const edges = new THREE.EdgesGeometry(geometry);
+                const lineSegments = new THREE.LineSegments(edges, hudLineMat);
+                lineSegments.position.set(posX, posY, posZ);
+                return lineSegments;
+            }
+
+            // 1. Alváz / Fő kasztni (Szögletes alsó rész)
+            const bodyGeo = new THREE.BoxGeometry(1.7, 0.55, 3.8);
+            carModel.add(createWireframeComponent(bodyGeo, 0, 0.4, 0));
+
+            // 2. Magasított motorháztető él
+            const hoodGeo = new THREE.BoxGeometry(1.68, 0.15, 1.2);
+            carModel.add(createWireframeComponent(hoodGeo, 0, 0.65, 1.2));
+
+            // 3. Kabin (Utastér)
+            const cabinGeo = new THREE.BoxGeometry(1.5, 0.55, 2.3);
+            carModel.add(createWireframeComponent(cabinGeo, 0, 0.85, -0.4));
+
+            // 4. Lebegő tetőlemez
+            const roofGeo = new THREE.BoxGeometry(1.54, 0.04, 2.34);
+            carModel.add(createWireframeComponent(roofGeo, 0, 1.14, -0.4));
+
+            // 5. Kerekek terepgumival (Hengerek mint tiszta körkörös drótvázak)
+            const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 12);
+            const wheelPositions = [
+                {x: 0.85, y: 0.2, z: 1.1},   // Jobb első
+                {x: -0.85, y: 0.2, z: 1.1},  // Bal első
+                {x: 0.85, y: 0.2, z: -1.1},  // Jobb hátsó
+                {x: -0.85, y: 0.2, z: -1.1}   // Bal hátsó
+            ];
+
+            wheelPositions.forEach(pos => {
+                const wheelWire = createWireframeComponent(wheelGeo, 0, 0, 0);
+                wheelWire.rotation.z = Math.PI / 2; // Autókerék állásba forgatás
+                
+                const wheelGroup = new THREE.Group();
+                wheelGroup.add(wheelWire);
+                wheelGroup.position.set(pos.x, pos.y, pos.z);
+                carModel.add(wheelGroup);
+            });
+
+            // 6. Kiber-Tetőcsomagtartó keret (Overland expedíciós stílus)
+            const rackGeo = new THREE.BoxGeometry(1.4, 0.08, 2.0);
+            carModel.add(createWireframeComponent(rackGeo, 0, 1.22, -0.4));
+
+            // HOLOGRAM RADAR-GYŰRŰ AZ AUTÓ ALATT (Ez az autóval együtt fog dőlni a térben!)
+            // Paraméterek: sugár, koncentrikus körök száma, sugárvonalak száma
+            radarGrid = new THREE.PolarGridHelper(2.3, 4, 8, 32, 0x00ffff, 0x004466);
+            radarGrid.position.y = -0.1; 
+            radarGrid.material.transparent = true;
+            radarGrid.material.opacity = 0.6;
+            carModel.add(radarGrid);
+
+            scene.add(carModel);
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
         }
 
-        // Alsó neonfény textúra generálása
-        function createGlowTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 16; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 256, 0, 0); 
-            gradient.addColorStop(0, 'rgba(0, 243, 255, 1)');
-            gradient.addColorStop(0.3, 'rgba(0, 243, 255, 0.4)');
-            gradient.addColorStop(1, 'rgba(0, 243, 255, 0)');
-            ctx.fillStyle = gradient; ctx.fillRect(0, 0, 16, 256);
-            return new THREE.CanvasTexture(canvas);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Oldalsó neon fénycsíkok az alvázra
-        let leftGlowPlane, rightGlowPlane;
-        function setupNeonGlowPanels() {
-            const glowGeo = new THREE.PlaneGeometry(46 * 0.8, 9 * 0.4); 
-            const glowTex = createGlowTexture();
-            const matLeft = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-            const matRight = matLeft.clone();
-
-            leftGlowPlane = new THREE.Mesh(glowGeo, matLeft);
-            leftGlowPlane.rotation.y = Math.PI / 2;
-            leftGlowPlane.position.set(-10.5, -3, 0); 
-            carGroup.add(leftGlowPlane);
-
-            rightGlowPlane = new THREE.Mesh(glowGeo, matRight);
-            rightGlowPlane.rotation.y = -Math.PI / 2;
-            rightGlowPlane.position.set(10.5, -3, 0); 
-            carGroup.add(rightGlowPlane);
-        }
-
-        // Objektumok inicializálása
-        const cyberCar = buildCyberCar();
-        carGroup.add(cyberCar);
-        setupNeonGlowPanels();
-
-        let targetRotX = 0;
-        let targetRotZ = 0;
-        let autoRotationY = 0;
-
-        // Animációs ciklus
         function animate() {
             requestAnimationFrame(animate);
 
-            if (touchState.isTouching) {
-                // Interakció alatt követi a dőlést
-                targetRotZ = -touchState.x * 0.22; 
-                targetRotX = -touchState.y * 0.18;
-            } else {
-                // Elengedéskor visszaáll és lágyan forog
-                targetRotZ = 0; 
-                targetRotX = 0;
-                autoRotationY += 0.005; 
-                carGroup.rotation.y = autoRotationY;
+            if (controls) controls.update();
+
+            // Végtelenített lineáris háttér-út mozgása hátrafelé
+            linearGrid.position.z += driveSpeed;
+            if (linearGrid.position.z >= 1.0) {
+                linearGrid.position.z -= 1.0;
             }
 
-            // Sima fizikai mozgás (Lerp)
-            carGroup.rotation.z = THREE.MathUtils.lerp(carGroup.rotation.z, targetRotZ, 0.08);
-            carGroup.rotation.x = THREE.MathUtils.lerp(carGroup.rotation.x, targetRotX, 0.08);
+            // Az autó alatti radar-gyűrű finom, sci-fi jellegű forgatása
+            if (radarGrid) {
+                radarGrid.rotation.y += 0.005;
+            }
 
-            // Neonfény intenzitás változtatása a dőlésszög függvényében
-            let currentTiltZ = carGroup.rotation.z;
-            leftGlowPlane.material.opacity = THREE.MathUtils.clamp(Math.max(0, -currentTiltZ * 3.5), 0, 0.75);
-            rightGlowPlane.material.opacity = THREE.MathUtils.clamp(Math.max(0, currentTiltZ * 3.5), 0, 0.75);
+            // VEKTOR AUTÓ + RADAR EGYÜTTES FIZIKAI DŐLÉSE (Lerp)
+            carModel.rotation.x += (currentPitch - carModel.rotation.x) * 0.15;
+            carModel.rotation.z += (currentRoll - carModel.rotation.z) * 0.15;
 
             renderer.render(scene, camera);
         }
 
-        // Ablakméret változás követése
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        // Giroszkóp kalibráció és engedélyezés
+        const startBtn = document.getElementById('start-btn');
+
+        startBtn.addEventListener('click', function() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation, true);
+                            isCalibrated = false;
+                            startBtn.innerText = "RE-CALIBRATE HUD";
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                isCalibrated = false;
+                startBtn.innerText = "RE-CALIBRATE HUD";
+            }
         });
 
-        animate();
+        function handleOrientation(event) {
+            let rawPitch = 0;
+            let rawRoll = 0;
+
+            // IPAD FEKVŐ (LANDSCAPE) MÓD
+            if (window.orientation === 90) {
+                rawPitch = -event.gamma;
+                rawRoll = -event.beta;
+            } else if (window.orientation === -90) {
+                rawPitch = event.gamma;
+                rawRoll = event.beta;
+            } else {
+                rawPitch = event.beta;
+                rawRoll = event.gamma;
+            }
+
+            if (!isCalibrated) {
+                basePitch = rawPitch;
+                baseRoll = rawRoll;
+                isCalibrated = true;
+            }
+
+            let finalPitch = rawPitch - basePitch;
+            let finalRoll = rawRoll - baseRoll;
+
+            document.getElementById('val-pitch').innerText = Math.round(finalPitch);
+            document.getElementById('val-roll').innerText = Math.round(finalRoll);
+
+            // Three.js radián átváltás
+            currentPitch = finalPitch * (Math.PI / 180);
+            currentRoll = finalRoll * (Math.PI / 180);
+        }
+
+        init3D();
     </script>
 </body>
 </html>
